@@ -1,20 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- গ্লোবাল অডিও ক্যাপচার করে ভিজ্যুয়ালাইজ করার পারমিশন -->
+    <!-- প্রয়োজনীয় সকল পারমিশন -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    
-    <!-- সিস্টেমের ওপর এজ লাইটিং এবং AOD দেখানোর ওভারলে পারমিশন -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    
-    <!-- ব্যাকগ্রাউন্ডে লাইটিং সার্ভিস সচল রাখার পারমিশন (Android 14+ এর জন্য মিডিয়া টাইপ সহ) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <application
         android:allowBackup="true"
         android:icon="@android:drawable/sym_def_app_icon"
@@ -22,7 +15,7 @@
         android:roundIcon="@android:drawable/sym_def_app_icon"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
-        
+
         <!-- মেইন স্ক্রিন অ্যাক্টিভিটি -->
         <activity
             android:name=".MainActivity"
@@ -34,12 +27,11 @@
             </intent-filter>
         </activity>
 
-        <!-- ব্যাকগ্রাউন্ডে অডিও প্রসেসিং এবং লাইটিং ওভারলে সার্ভিস -->
+        <!-- ব্যাকগ্রাউন্ড সার্ভিস (এখানে mediaPlayback এবং microphone দুটোই সেট করা হলো) -->
         <service
             android:name=".EdgeLightingService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
-            
+            android:foregroundServiceType="mediaPlayback|microphone" />
     </application>
 </manifest>
