@@ -5,6 +5,7 @@ import android.graphics.*
 import android.view.View
 import kotlin.math.abs
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 class EdgeVisualizerView(context: Context) : View(context) {
     private val paint = Paint().apply {
@@ -14,11 +15,11 @@ class EdgeVisualizerView(context: Context) : View(context) {
         strokeCap = Paint.Cap.ROUND
     }
 
-    private var audioData: ByteArray? = null
+    private var fftData: ByteArray? = null
     private var rotationAngle = 0f
     private var animPhase = 0f
+    private var smoothedBass = 0f
 
-    // ডাইনামিক কন্ট্রোল ভেরিয়েবল
     private var currentSpeed = 2.5f
     private var baseThickness = 12f
 
@@ -34,11 +35,10 @@ class EdgeVisualizerView(context: Context) : View(context) {
     private var gradientShader: SweepGradient? = null
     private val gradientMatrix = Matrix()
 
-    fun updateVisualizer(bytes: ByteArray) {
-        this.audioData = bytes
+    fun updateFft(bytes: ByteArray) {
+        this.fftData = bytes
     }
 
-    // UI থেকে স্পিড ও থিকনেস আপডেট করার মেথড
     fun updateConfig(speed: Float, thickness: Float) {
         this.currentSpeed = speed
         this.baseThickness = thickness
@@ -56,27 +56,45 @@ class EdgeVisualizerView(context: Context) : View(context) {
             paint.shader = gradientShader
         }
 
-        // স্লাইডারের স্পিড অনুযায়ী রোটেশন হ্যান্ডেল করা
-        rotationAngle = (rotationAngle + currentSpeed) % 360f
+        // বেসের জোর অনুযায়ী আরজিবি লাইটের ঘূর্ণন গতিও একটু ডাইনামিকালি বুস্ট হবে
+        val speedFactor = 1f + (smoothedBass / 20f).coerceAtMost(2.5f)
+        rotationAngle = (rotationAngle + (currentSpeed * speedFactor)) % 360f
         gradientMatrix.setRotate(rotationAngle, w / 2f, h / 2f)
         gradientShader?.setLocalMatrix(gradientMatrix)
 
-        var amplitude = 0f
-        val data = audioData
-        if (data != null && data.isNotEmpty()) {
+        var bassAmplitude = 0f
+        val fft = fftData
+
+        if (fft != null && fft.isNotEmpty()) {
+            var bassSum = 0f
+            // FFT অ্যারের ২ থেকে ১২ নম্বর বিনগুলো মূলত সাব-বেস এবং মেইন বেস ফ্রিকোয়েন্সি রিড করে
+            val startBin = 2
+            val endBin = 12
             var count = 0
-            for (i in 0 until data.size step 4) {
-                amplitude += abs(data[i].toInt() - 128)
-                count++
+            
+            for (i in startBin..endBin step 2) {
+                if (i + 1 < fft.size) {
+                    val r = fft[i].toFloat()
+                    val im = fft[i + 1].toFloat()
+                    // রিয়েল এবং ইমাজিনারি পার্ট থেকে ফ্রিকোয়েন্সির তীব্রতা (Magnitude) বের করা
+                    bassSum += sqrt(r * r + im * im)
+                    count++
+                }
             }
-            if (count > 0) amplitude /= count
+            if (count > 0) {
+                bassAmplitude = bassSum / count
+            }
         } else {
+            // গান না চললে ব্যাকগ্রাউন্ডে একটা স্মুথ অটো-পালস অ্যানিমেশন চলবে
             animPhase += (currentSpeed * 0.015f).coerceAtLeast(0.01f)
-            amplitude = (sin(animPhase) * 12f) + 12f
+            bassAmplitude = (sin(animPhase) * 8f) + 8f
         }
 
-        // স্লাইডারের থিকনেস অনুযায়ী বর্ডার সাইজ নির্ধারণ
-        val stroke = baseThickness + (amplitude * 0.5f).coerceAtMost(20f)
+        // লাইট যেন খুব বেশি লাফালাফি না করে, তাই লো-পাস ফিল্টার দিয়ে এফেক্টটাকে মাখনের মতো স্মুথ করা হলো
+        smoothedBass = smoothedBass * 0.75f + bassAmplitude * 0.25f
+
+        // বেসের ড্রপ অনুযায়ী বর্ডারের থিকনেস ডাইনামিকালি ফ্লাকচুয়েট করবে
+        val stroke = baseThickness + (smoothedBass * 0.9f).coerceAtMost(40f)
         paint.strokeWidth = stroke
 
         val inset = stroke / 2f + 2f

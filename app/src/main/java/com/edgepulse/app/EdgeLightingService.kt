@@ -38,7 +38,6 @@ class EdgeLightingService : Service() {
         }
     }
 
-    // প্রতিবার সлизации স্লাইডার চেঞ্জ হলে এখান থেকে ডেটা ভিউতে পাস হবে
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.let {
             val speed = it.getFloatExtra("EXTRA_SPEED", 2.5f)
@@ -62,8 +61,8 @@ class EdgeLightingService : Service() {
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, "edge_lighting_channel")
-            .setContentTitle("EdgePulse Active")
-            .setContentText("Listening to audio and rendering effects...")
+            .setContentTitle("EdgePulse Premium Active")
+            .setContentText("Syncing neon effects to the music bass...")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -96,12 +95,14 @@ class EdgeLightingService : Service() {
         visualizer = Visualizer(0).apply {
             captureSize = Visualizer.getCaptureSizeRange()[1]
             setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
-                    waveform?.let {
-                        edgeVisualizerView?.updateVisualizer(it)
+                override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {}
+                
+                // ওয়েরফর্ম ইগনোর করে সরাসরি FFT ক্যাপচার করে ভিউতে পাঠানো হচ্ছে
+                override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
+                    fft?.let {
+                        edgeVisualizerView?.updateFft(it)
                     }
                 }
-                override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {}
             }, Visualizer.getMaxCaptureRate() / 2, true, true)
             enabled = true
         }
