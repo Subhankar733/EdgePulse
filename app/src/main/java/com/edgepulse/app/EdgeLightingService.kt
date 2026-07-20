@@ -27,20 +27,25 @@ class EdgeLightingService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        
-        // ফোরগ্রাউন্ড সার্ভিসের নোটিফিকেশন চ্যানেল
         createNotificationChannel()
         startForeground(1, createNotification())
-
-        // ভিউ ইন্টিগ্রেশন সহ ওভারলে উইন্ডো চালু
         showEdgeLightingOverlay()
 
-        // অ디오 ট্র্যাকিং শুরু
         try {
             initVisualizer()
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    // প্রতিবার সлизации স্লাইডার চেঞ্জ হলে এখান থেকে ডেটা ভিউতে পাস হবে
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.let {
+            val speed = it.getFloatExtra("EXTRA_SPEED", 2.5f)
+            val thickness = it.getFloatExtra("EXTRA_THICKNESS", 12f)
+            edgeVisualizerView?.updateConfig(speed, thickness)
+        }
+        return START_STICKY
     }
 
     private fun createNotificationChannel() {
@@ -66,20 +71,18 @@ class EdgeLightingService : Service() {
 
     private fun showEdgeLightingOverlay() {
         overlayView = FrameLayout(this)
-        
-        // আমাদের কাস্টম ভিজ্যুয়ালাইজার ভিউকে ওভারলে লেআউটে যুক্ত করা হচ্ছে
         edgeVisualizerView = EdgeVisualizerView(this)
         overlayView?.addView(edgeVisualizerView)
-        
+
         val layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
-            else 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
                 WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or 
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -90,20 +93,15 @@ class EdgeLightingService : Service() {
     }
 
     private fun initVisualizer() {
-        // Audio Session 0 দিয়ে গ্লোবাল অডিও স্ট্রিম ক্যাপচার
         visualizer = Visualizer(0).apply {
             captureSize = Visualizer.getCaptureSizeRange()[1]
             setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
-                    // সংগৃহীত অডিও ডেটা সরাসরি কাস্টম ভিউতে পুশ করা হচ্ছে
                     waveform?.let {
                         edgeVisualizerView?.updateVisualizer(it)
                     }
                 }
-
-                override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
-                    // ফ্রিকোয়েন্সি অ্যানিমেশনের প্রয়োজন হলে ভবিষ্যতে এখানে কাজ করা যাবে
-                }
+                override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {}
             }, Visualizer.getMaxCaptureRate() / 2, true, true)
             enabled = true
         }
@@ -117,7 +115,6 @@ class EdgeLightingService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-
         if (overlayView != null) {
             windowManager?.removeView(overlayView)
         }
