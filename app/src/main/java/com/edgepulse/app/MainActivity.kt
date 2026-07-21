@@ -1,6 +1,7 @@
 package com.edgepulse.app
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -10,11 +11,8 @@ import android.provider.Settings
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private val PERMISSION_REQUEST_CODE = 101
 
@@ -29,11 +27,14 @@ class MainActivity : AppCompatActivity() {
         val seekSpeed = findViewById<SeekBar>(R.id.seekSpeed)
         val seekThickness = findViewById<SeekBar>(R.id.seekThickness)
 
-        btnStart.setOnClickListener {
+        btnStart?.setOnClickListener {
             if (checkPermissions()) {
+                val speedVal = if (seekSpeed != null) (seekSpeed.progress + 1).toFloat() else 2.5f
+                val thicknessVal = if (seekThickness != null) (seekThickness.progress + 5).toFloat() else 12f
+
                 val intent = Intent(this, EdgeLightingService::class.java).apply {
-                    putExtra("EXTRA_SPEED", (seekSpeed.progress + 1).toFloat())
-                    putExtra("EXTRA_THICKNESS", (seekThickness.progress + 5).toFloat())
+                    putExtra("EXTRA_SPEED", speedVal)
+                    putExtra("EXTRA_THICKNESS", thicknessVal)
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(intent)
@@ -44,7 +45,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        btnStop.setOnClickListener {
+        btnStop?.setOnClickListener {
             stopService(Intent(this, EdgeLightingService::class.java))
             Toast.makeText(this, "EdgePulse Stopped", Toast.LENGTH_SHORT).show()
         }
@@ -52,14 +53,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissions(): Boolean {
         var granted = true
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_REQUEST_CODE)
-            granted = false
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-            startActivity(intent)
-            granted = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_REQUEST_CODE)
+                granted = false
+            }
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                startActivity(intent)
+                granted = false
+            }
         }
         return granted
     }
