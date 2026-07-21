@@ -22,16 +22,17 @@ class EdgeVisualizerView(context: Context) : View(context) {
         strokeCap = Paint.Cap.ROUND
     }
 
-    private var fftData: ByteArray? = null
+    private var audioLevel = 0f
+    private var smoothedLevel = 0f
     private var rotationAngle = 0f
     private var animPhase = 0f
 
-    private var smoothedBass = 0f
     private var currentSpeed = 2.5f
     private var baseThickness = 12f
 
     private val premiumColors = intArrayOf(
         Color.parseColor("#FF0055"),
+        Color.parseColor("#FF9900"),
         Color.parseColor("#00E5FF"),
         Color.parseColor("#7209B7"),
         Color.parseColor("#00FF66"),
@@ -43,11 +44,37 @@ class EdgeVisualizerView(context: Context) : View(context) {
 
     init {
         setLayerType(LAYER_TYPE_SOFTWARE, null)
-        paintGlow.maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
+        paintGlow.maskFilter = BlurMaskFilter(28f, BlurMaskFilter.Blur.NORMAL)
+    }
+
+    fun updateWaveform(bytes: ByteArray) {
+        var sum = 0.0
+        for (i in bytes.indices) {
+            val sample = (bytes[i].toInt() and 0xFF) - 128
+            sum += (sample * sample).toDouble()
+        }
+        val rms = sqrt(sum / bytes.size)
+        val norm = (rms / 35.0).toFloat().coerceIn(0f, 1f)
+        this.audioLevel = norm
     }
 
     fun updateFft(bytes: ByteArray) {
-        this.fftData = bytes
+        var bassSum = 0f
+        var count = 0
+        for (i in 2..16 step 2) {
+            if (i + 1 < bytes.size) {
+                val r = bytes[i].toFloat()
+                val im = bytes[i + 1].toFloat()
+                bassSum += sqrt(r * r + im * im)
+                count++
+            }
+        }
+        if (count > 0) {
+            val bassNorm = (bassSum / count / 25f).coerceIn(0f, 1f)
+            if (bassNorm > this.audioLevel) {
+                this.audioLevel = bassNorm
+            }
+        }
     }
 
     fun updateConfig(speed: Float, thickness: Float) {
@@ -68,58 +95,31 @@ class EdgeVisualizerView(context: Context) : View(context) {
             paintGlow.shader = gradientShader
         }
 
-        var bassMagnitude = 0f
-        var isAudioActive = false
-        val fft = fftData
+        smoothedLevel = smoothedLevel * 0.7f + audioLevel * 0.3f
 
-        if (fft != null && fft.isNotEmpty()) {
-            var bassSum = 0f
-            var bassCount = 0
-            // ২ থেকে ১৬ নম্বর ফ্রিকোয়েন্সি বিন (বেস অ্যান্ড সাব-বেস)
-            for (i in 2..16 step 2) {
-                if (i + 1 < fft.size) {
-                    val r = fft[i].toFloat()
-                    val im = fft[i + 1].toFloat()
-                    val mag = sqrt(r * r + im * im)
-                    bassSum += mag
-                    bassCount++
-                }
-            }
-            if (bassCount > 0) {
-                val rawBass = bassSum / bassCount
-                if (rawBass > 1f) {
-                    isAudioActive = true
-                    // ৪x গেইন বুস্ট - যাতে বিটগুলো সচ্ছলভাবে রিয়্যাক্ট করে
-                    bassMagnitude = rawBass * 4.0f 
-                }
-            }
+        var activePulse = smoothedLevel
+        if (activePulse < 0.02f) {
+            animPhase += 0.04f
+            activePulse = (sin(animPhase) * 0.12f) + 0.12f
         }
 
-        if (!isAudioActive) {
-            animPhase += (currentSpeed * 0.012f).coerceAtLeast(0.005f)
-            bassMagnitude = (sin(animPhase) * 5f) + 5f
-        }
-
-        smoothedBass = smoothedBass * 0.7f + bassMagnitude * 0.3f
-
-        val speedFactor = 1f + (smoothedBass / 20f).coerceAtMost(3.0f)
-        rotationAngle = (rotationAngle + (currentSpeed * speedFactor)) % 360f
+        val spinSpeed = currentSpeed * (1f + activePulse * 3.5f)
+        rotationAngle = (rotationAngle + spinSpeed) % 360f
         gradientMatrix.setRotate(rotationAngle, w / 2f, h / 2f)
         gradientShader?.setLocalMatrix(gradientMatrix)
 
-        val coreStroke = baseThickness + (smoothedBass * 0.8f).coerceAtMost(35f)
-        val glowStroke = coreStroke + 15f + (smoothedBass * 1.0f).coerceAtMost(40f)
+        val pulseBoost = activePulse * 30f
+        val coreStroke = baseThickness + pulseBoost
+        val glowStroke = coreStroke + 18f + (activePulse * 28f)
 
-        val cornerRadius = 85f
+        val cornerRadius = 90f
 
-        // গ্লো লেয়ার
         paintGlow.strokeWidth = glowStroke
-        paintGlow.alpha = (100 + (smoothedBass * 6f).toInt()).coerceIn(80, 255)
+        paintGlow.alpha = (90 + (activePulse * 165f).toInt()).coerceIn(70, 255)
         val insetGlow = glowStroke / 2f
         val rectGlow = RectF(insetGlow, insetGlow, w - insetGlow, h - insetGlow)
         canvas.drawRoundRect(rectGlow, cornerRadius, cornerRadius, paintGlow)
 
-        // মেইন সলিড কোর লেয়ার (একদম ডিসপ্লের আউটার এডজ স্পর্শ করে আঁকা)
         paintCore.strokeWidth = coreStroke
         paintCore.alpha = 255
         val insetCore = coreStroke / 2f

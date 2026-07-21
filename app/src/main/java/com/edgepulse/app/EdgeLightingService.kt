@@ -62,7 +62,7 @@ class EdgeLightingService : Service() {
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, "edge_lighting_channel")
             .setContentTitle("EdgePulse Active")
-            .setContentText("Listening to audio and rendering effects...")
+            .setContentText("Syncing with live audio...")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -83,11 +83,10 @@ class EdgeLightingService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, // ফুল স্ক্রিন নোচ কভারেজ
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
-            // ক্যামেরা নোচের ওপর পর্যন্ত লাইট ছড়িয়ে দেওয়ার জন্য অ্যান্ড্রয়েড ৯+ ফ্ল্যাগ
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
@@ -100,7 +99,11 @@ class EdgeLightingService : Service() {
         visualizer = Visualizer(0).apply {
             captureSize = Visualizer.getCaptureSizeRange()[1]
             setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {}
+                override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                    waveform?.let {
+                        edgeVisualizerView?.updateWaveform(it)
+                    }
+                }
                 override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
                     fft?.let {
                         edgeVisualizerView?.updateFft(it)
