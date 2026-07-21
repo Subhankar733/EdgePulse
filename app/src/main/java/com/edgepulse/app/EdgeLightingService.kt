@@ -61,8 +61,8 @@ class EdgeLightingService : Service() {
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, "edge_lighting_channel")
-            .setContentTitle("EdgePulse Premium Active")
-            .setContentText("Syncing neon effects to the music bass...")
+            .setContentTitle("EdgePulse Active")
+            .setContentText("Listening to audio and rendering effects...")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -82,10 +82,15 @@ class EdgeLightingService : Service() {
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, // ফুল স্ক্রিন নোচ কভারেজ
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
+            // ক্যামেরা নোচের ওপর পর্যন্ত লাইট ছড়িয়ে দেওয়ার জন্য অ্যান্ড্রয়েড ৯+ ফ্ল্যাগ
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
 
         windowManager?.addView(overlayView, layoutParams)
@@ -96,14 +101,12 @@ class EdgeLightingService : Service() {
             captureSize = Visualizer.getCaptureSizeRange()[1]
             setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {}
-                
-                // ওয়েরফর্ম ইগনোর করে সরাসরি FFT ক্যাপচার করে ভিউতে পাঠানো হচ্ছে
                 override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
                     fft?.let {
                         edgeVisualizerView?.updateFft(it)
                     }
                 }
-            }, Visualizer.getMaxCaptureRate() / 2, true, true)
+            }, Visualizer.getMaxCaptureRate(), true, true)
             enabled = true
         }
     }

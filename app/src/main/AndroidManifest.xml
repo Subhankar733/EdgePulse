@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- প্রয়োজনীয় সকল পারমিশন -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -16,7 +16,6 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
-        <!-- মেইন স্ক্রিন অ্যাক্টিভিটি -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -27,7 +26,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ব্যাকগ্রাউন্ড সার্ভিস (এখানে mediaPlayback এবং microphone দুটোই সেট করা হলো) -->
         <service
             android:name=".EdgeLightingService"
             android:enabled="true"
